@@ -271,6 +271,12 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 		log.WithError(err).Errorf("%s", out)
 		return nil, errors.New(string(out))
 	}
+	//we create "data" subfolder
+	path = filepath.Join(path, "data")
+	if err = os.MkdirAll(path, 0700); err != nil {
+		logger.WithError(err).Error("Error creating data directory inside mounted volume")
+		return nil, err
+	}
 
 	resp := volume.MountResponse{
 		Mountpoint: path,
