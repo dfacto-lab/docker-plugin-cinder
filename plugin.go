@@ -87,7 +87,9 @@ func (d plugin) Create(r *volume.CreateRequest) error {
 	defer d.mutex.Unlock()
 
 	// DEFAULT SIZE IN GB
-	var size = 10
+	//var size = 10
+	var size = d.config.VolumeDefaultSize
+	logger.Debugf("Default volume size set to: %d", size)
 	var err error
 
 	if s, ok := r.Options["size"]; ok {

@@ -34,6 +34,7 @@ Provide configuration for the plugin:
     "applicationCredentialSecret": "",
     "region": "",
     "mountDir": ""
+    "volumeDefaultSize": ""
 }
 ```
 
