@@ -89,7 +89,7 @@ func (d plugin) Create(r *volume.CreateRequest) error {
 	// DEFAULT SIZE IN GB
 	//var size = 10
 	var size = d.config.VolumeDefaultSize
-	logger.Debugf("Default volume size set to: %d", size)
+	logger.Debugf("Default volume size was set to: %d", size)
 	var err error
 
 	if s, ok := r.Options["size"]; ok {
