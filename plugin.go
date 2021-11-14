@@ -273,11 +273,15 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 		log.WithError(err).Errorf("%s", out)
 		return nil, errors.New(string(out))
 	}
+
 	//we create "data" subfolder
-	path = filepath.Join(path, "data")
-	if err = os.MkdirAll(path, 0700); err != nil {
-		logger.WithError(err).Error("Error creating data directory inside mounted volume")
-		return nil, err
+	if len(d.config.MountSubPath) > 0 {
+		path = filepath.Join(path, d.config.MountSubPath)
+		logger.Info("Docker mount sub path: " + path)
+		if err = os.MkdirAll(path, 0700); err != nil {
+			logger.WithError(err).Error("Error creating data directory inside mounted volume")
+			return nil, err
+		}
 	}
 
 	resp := volume.MountResponse{
@@ -292,11 +296,16 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 func (d plugin) Path(r *volume.PathRequest) (*volume.PathResponse, error) {
 	logger := log.WithFields(log.Fields{"name": r.Name, "action": "path"})
 	logger.Debugf("Path: %+v", r)
-	var path = filepath.Join(d.config.MountDir, r.Name, "data")
+	path := filepath.Join(d.config.MountDir, r.Name)
+
+	if len(d.config.MountSubPath) > 0 {
+		path = filepath.Join(path, d.config.MountSubPath)
+	}
+
 	resp := volume.PathResponse{
 		Mountpoint: path,
 	}
-	logger.Info("Mountpoint: " + path)
+
 	return &resp, nil
 }
 
