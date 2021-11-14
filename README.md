@@ -35,6 +35,7 @@ Provide configuration for the plugin:
     "region": "",
     "mountDir": ""
     "volumeDefaultSize": ""
+    "mountSubPath": ""
 }
 ```
 

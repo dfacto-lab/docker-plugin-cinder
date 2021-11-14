@@ -32,7 +32,7 @@ type tConfig struct {
 	Region                      string `json:"region,omitempty"`
 	MachineID                   string `json:"machineID,omitempty"`
 	MountDir                    string `json:"mountDir,omitempty"`
-	MountSubPath                string `json:"MountSubPath,omitempty"`
+	MountSubPath                string `json:"mountSubPath,omitempty"`
 	VolumeDefaultSize           int    `json:"volumeDefaultSize,omitempty"`
 }
 
