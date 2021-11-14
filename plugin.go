@@ -284,11 +284,11 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 func (d plugin) Path(r *volume.PathRequest) (*volume.PathResponse, error) {
 	logger := log.WithFields(log.Fields{"name": r.Name, "action": "path"})
 	logger.Debugf("Path: %+v", r)
-
+	var path = filepath.Join(d.config.MountDir, r.Name, "data")
 	resp := volume.PathResponse{
-		Mountpoint: filepath.Join(d.config.MountDir, r.Name),
+		Mountpoint: path,
 	}
-
+	logger.Info("Mountpoint: " + path)
 	return &resp, nil
 }
 
