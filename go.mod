@@ -1,4 +1,4 @@
-module github.com/jgraichen/docker-plugin-cinder
+module github.com/dfacto-lab/docker-plugin-cinder
 
 go 1.13
 

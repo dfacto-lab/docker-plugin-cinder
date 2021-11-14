@@ -20,3 +20,6 @@
 # Configuration file and binary
 /cinder.json
 /docker-plugin-cinder
+
+# Jetbrains files
+/.idea

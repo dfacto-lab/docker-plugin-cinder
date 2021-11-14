@@ -226,7 +226,11 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 	//
 	// Waiting for device appearance
 
-	dev := fmt.Sprintf("/dev/disk/by-id/virtio-%.20s", vol.ID)
+	// TODO : Manage Docker engine version to enable first or second syntax
+	// DockerCE Version < 20.10.8 : /dev/disk/by-id/virtio-%.20s
+	// DockerCE Version >= 20.10.8 : /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_%s
+	// dev := fmt.Sprintf("/dev/disk/by-id/virtio-%.20s", vol.ID)
+	dev := fmt.Sprintf("/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_%s", vol.ID)
 	logger.WithField("dev", dev).Debug("Waiting for device to appear...")
 	err = waitForDevice(dev)
 

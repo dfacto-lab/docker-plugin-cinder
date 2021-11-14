@@ -1,6 +1,10 @@
 # docker-plugin-cinder
 
-This Docker volume plugin for utilizing OpenStack Cinder for persistent storage volumes.
+**NB** : The plugin is only compatible with Docker CE version 20.10.7+
+
+    see : TODO in plugin.go (line ~229)
+
+This Docker plugin for utilizing OpenStack Cinder for persistent storage volumes.
 
 The plugin attaches block storage volumes to the compute instance running the plugin. If the volume is already attached to another compute instance it will be detached first.
 
