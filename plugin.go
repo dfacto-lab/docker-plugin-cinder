@@ -422,7 +422,7 @@ func (d plugin) waitOnVolumeState(ctx context.Context, vol *volumes.Volume, stat
 		return vol, nil
 	}
 
-	for i := 1; i <= 10; i++ {
+	for i := 1; i <= 30; i++ {
 		time.Sleep(500 * time.Millisecond)
 
 		vol, err := volumes.Get(d.blockClient, vol.ID).Extract()
@@ -437,5 +437,5 @@ func (d plugin) waitOnVolumeState(ctx context.Context, vol *volumes.Volume, stat
 
 	log.WithContext(ctx).Debugf("Volume did not become %s: %+v", status, vol)
 
-	return nil, fmt.Errorf("Volume status did became %s", status)
+	return nil, fmt.Errorf("Volume status did become %s", status)
 }
