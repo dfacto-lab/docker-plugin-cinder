@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+
 	uuid "github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
 
@@ -196,7 +197,7 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 	}
 
 	if len(vol.Attachments) > 0 {
-		logger.Debug("Volume already attached, detaching first")
+		logger.Debug("Volume already attached, detaching first, status is: %s", vol.Status)
 		if vol, err = d.detachVolume(logger.Context, vol); err != nil {
 			logger.WithError(err).Error("Error detaching volume")
 			return nil, err
@@ -216,13 +217,18 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 
 	//
 	// Attaching block volume to compute instance
+	logger.Debug("Attaching volume ID %s", vol.ID);
 
 	opts := volumeattach.CreateOpts{VolumeID: vol.ID}
 	_, err = volumeattach.Create(d.computeClient, d.config.MachineID, opts).Extract()
 
 	if err != nil {
 		logger.WithError(err).Errorf("Error attaching volume: %s", err.Error())
-		return nil, err
+		if (!strings.Contains(err.Error(), "already attached")) {
+			return nil, err
+		} else {
+			logger.Infof("Bypassing error already attached, %s", err.Error())
+		}
 	}
 
 	//
@@ -313,7 +319,8 @@ func (d plugin) Remove(r *volume.RemoveRequest) error {
 	logger := log.WithFields(log.Fields{"name": r.Name, "action": "remove"})
 	logger.Infof("Removing volume '%s' ...", r.Name)
 	logger.Debugf("Remove: %+v", r)
-
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 	vol, err := d.getByName(r.Name)
 
 	if err != nil {
