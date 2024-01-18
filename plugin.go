@@ -227,7 +227,7 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 		if (!strings.Contains(err.Error(), "already attached")) {
 			return nil, err
 		} else {
-			logger.Infof("Bypassing error already attached, %s", err.Error())
+			logger.Infof("Bypassing error: volume already attached. Error was: %s", err.Error())
 		}
 	}
 
