@@ -14,7 +14,6 @@ import (
 	"syscall"
 	"time"
 
-
 	uuid "github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
 
@@ -197,7 +196,11 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 	}
 
 	if len(vol.Attachments) > 0 {
-		logger.Debug("Volume already attached, detaching first, status is: %s", vol.Status)
+		for i := 0; i < len(vol.Attachments); i++ {
+			attachment := vol.Attachments[i]
+			logger.Infof("Volume id %s, name %s, status: %s, attachment: %s, hostname: %s", vol.ID, vol.Name, vol.Status, attachment.Device, attachment.HostName)
+		}
+		logger.Infof("Volume already attached, detaching first, status is: %s, attachments are: %s", vol.Status, vol.Attachments)
 		if vol, err = d.detachVolume(logger.Context, vol); err != nil {
 			logger.WithError(err).Error("Error detaching volume")
 			return nil, err
@@ -207,6 +210,17 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 			logger.WithError(err).Error("Error detaching volume")
 			return nil, err
 		}
+
+		for i := 0; i < len(vol.Attachments); i++ {
+			attachment := vol.Attachments[i]
+			logger.Infof("Volume id %s, name %s, status: %s, attachment: %s, hostname: %s", vol.ID, vol.Name, vol.Status, attachment.Device, attachment.HostName)
+		}
+
+		if vol, err = d.waitOnAttachmentState(logger.Context, vol, "detached"); err != nil {
+			logger.WithError(err).Error("Error detaching volume")
+			return nil, err
+		}
+
 	}
 
 	if vol.Status != "available" {
@@ -217,18 +231,18 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 
 	//
 	// Attaching block volume to compute instance
-	logger.Debug("Attaching volume ID %s", vol.ID);
+	logger.Debug("Attaching volume ID %s", vol.ID)
 
 	opts := volumeattach.CreateOpts{VolumeID: vol.ID}
 	_, err = volumeattach.Create(d.computeClient, d.config.MachineID, opts).Extract()
 
 	if err != nil {
 		logger.WithError(err).Errorf("Error attaching volume: %s", err.Error())
-		if (!strings.Contains(err.Error(), "already attached")) {
-			return nil, err
-		} else {
-			logger.Infof("Bypassing error: volume already attached. Error was: %s", err.Error())
-		}
+		//if (!strings.Contains(err.Error(), "already attached")) {
+		return nil, err
+		//} else {
+		//	logger.Infof("Bypassing error: volume already attached. Error was: %s", err.Error())
+		//}
 	}
 
 	//
@@ -433,11 +447,47 @@ func (d plugin) waitOnVolumeState(ctx context.Context, vol *volumes.Volume, stat
 		time.Sleep(500 * time.Millisecond)
 
 		vol, err := volumes.Get(d.blockClient, vol.ID).Extract()
+
 		if err != nil {
 			return nil, err
 		}
 
 		if vol.Status == status {
+			return vol, nil
+		}
+	}
+
+	log.WithContext(ctx).Debugf("Volume did not become %s: %+v", status, vol)
+
+	return nil, fmt.Errorf("Volume status did become %s", status)
+}
+
+func (d plugin) waitOnAttachmentState(ctx context.Context, vol *volumes.Volume, status string) (*volumes.Volume, error) {
+	var isDetached = true
+	if status == "attached" {
+		isDetached = false
+	}
+
+	if isDetached && len(vol.Attachments) == 0 {
+		return vol, nil
+	}
+	if !isDetached && len(vol.Attachments) > 0 {
+		return vol, nil
+	}
+
+	for i := 1; i <= 30; i++ {
+		time.Sleep(500 * time.Millisecond)
+
+		vol, err := volumes.Get(d.blockClient, vol.ID).Extract()
+
+		if err != nil {
+			return nil, err
+		}
+
+		if isDetached && len(vol.Attachments) == 0 {
+			return vol, nil
+		}
+		if !isDetached && len(vol.Attachments) > 0 {
 			return vol, nil
 		}
 	}
