@@ -131,6 +131,7 @@ func (d plugin) Get(r *volume.GetRequest) (*volume.GetResponse, error) {
 			Name:       r.Name,
 			CreatedAt:  vol.CreatedAt.Format(time.RFC3339),
 			Mountpoint: filepath.Join(d.config.MountDir, r.Name),
+			Status:     make(map[string]interface{}),
 		},
 	}
 	logger.Debugf("Get response: %+v", response)
@@ -228,7 +229,6 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 		logger.Errorf("Invalid volume state for mounting: %s", vol.Status)
 		return nil, errors.New("Invalid Volume State")
 	}
-
 	//
 	// Attaching block volume to compute instance
 	logger.Debugf("Attaching volume ID %s, name %s, status %s, attachments %s", vol.ID, vol.Name, vol.Status, vol.Attachments)
