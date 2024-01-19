@@ -198,7 +198,7 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 	if len(vol.Attachments) > 0 {
 		for i := 0; i < len(vol.Attachments); i++ {
 			attachment := vol.Attachments[i]
-			logger.Infof("Volume id %s, name %s, status: %s, attachment: %s, hostname: %s", vol.ID, vol.Name, vol.Status, attachment.Device, attachment.HostName)
+			logger.Infof("Attachment: Volume id %s, name %s, status: %s, attachment: %s, hostname: %s", vol.ID, vol.Name, vol.Status, attachment.Device, attachment.HostName)
 		}
 		logger.Infof("Volume already attached, detaching first, status is: %s, attachments are: %s", vol.Status, vol.Attachments)
 		if vol, err = d.detachVolume(logger.Context, vol); err != nil {
