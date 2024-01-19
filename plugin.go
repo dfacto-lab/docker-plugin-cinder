@@ -133,7 +133,7 @@ func (d plugin) Get(r *volume.GetRequest) (*volume.GetResponse, error) {
 			Mountpoint: filepath.Join(d.config.MountDir, r.Name),
 		},
 	}
-
+	logger.Debugf("Get response: %+v", response)
 	return response, nil
 }
 
@@ -198,7 +198,7 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 	if len(vol.Attachments) > 0 {
 		for i := 0; i < len(vol.Attachments); i++ {
 			attachment := vol.Attachments[i]
-			logger.Infof("Attachment: Volume id %s, name %s, status: %s, attachment: %s, hostname: %s", vol.ID, vol.Name, vol.Status, attachment.Device, attachment.HostName)
+			logger.Debugf("Attachment: Volume id %s, name %s, status: %s, attachment: %s, hostname: %s", vol.ID, vol.Name, vol.Status, attachment.Device, attachment.HostName)
 		}
 		logger.Infof("Volume already attached, detaching first, status is: %s, attachments are: %s", vol.Status, vol.Attachments)
 		if vol, err = d.detachVolume(logger.Context, vol); err != nil {
@@ -213,7 +213,7 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 
 		for i := 0; i < len(vol.Attachments); i++ {
 			attachment := vol.Attachments[i]
-			logger.Infof("Volume id %s, name %s, status: %s, attachment: %s, hostname: %s", vol.ID, vol.Name, vol.Status, attachment.Device, attachment.HostName)
+			logger.Debugf("Volume id %s, name %s, status: %s, attachment: %s, hostname: %s", vol.ID, vol.Name, vol.Status, attachment.Device, attachment.HostName)
 		}
 
 		if vol, err = d.waitOnAttachmentState(logger.Context, vol, "detached"); err != nil {
@@ -231,7 +231,7 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 
 	//
 	// Attaching block volume to compute instance
-	logger.Debugf("Attaching volume ID %s, name %s, status %s", vol.ID, vol.Name, vol.Status)
+	logger.Debugf("Attaching volume ID %s, name %s, status %s, attachments %s", vol.ID, vol.Name, vol.Status, vol.Attachments)
 
 	opts := volumeattach.CreateOpts{VolumeID: vol.ID}
 	_, err = volumeattach.Create(d.computeClient, d.config.MachineID, opts).Extract()
