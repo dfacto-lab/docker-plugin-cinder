@@ -395,6 +395,10 @@ func (d plugin) Unmount(r *volume.UnmountRequest) error {
 			logger.WithError(err).Error("Error detaching volume")
 		}
 	}
+	if vol, err = d.waitOnAttachmentState(logger.Context, vol, "detached"); err != nil {
+		logger.WithError(err).Error("Error detaching volume")
+		//return nil, err
+	}
 
 	return nil
 }
