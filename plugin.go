@@ -306,6 +306,17 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 		}
 	}
 
+	if vol, err = volumes.Get(d.blockClient, vol.ID).Extract(); err != nil {
+		return nil, err
+	}
+
+	logger.Debugf("Waiting for state in-use for volume id %s, %s, %s, %s", vol.ID, vol.Name, vol.Status, vol.Attachments)
+
+	if vol, err = d.waitOnVolumeState(logger.Context, vol, "in-use"); err != nil {
+		logger.WithError(err).Error("Error detaching volume")
+		return nil, err
+	}
+
 	resp := volume.MountResponse{
 		Mountpoint: path,
 	}
