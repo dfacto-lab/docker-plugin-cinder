@@ -231,7 +231,7 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 
 	//
 	// Attaching block volume to compute instance
-	logger.Debug("Attaching volume ID %s, name %s, status %s", vol.ID, vol.Name, vol.Status)
+	logger.Debugf("Attaching volume ID %s, name %s, status %s", vol.ID, vol.Name, vol.Status)
 
 	opts := volumeattach.CreateOpts{VolumeID: vol.ID}
 	_, err = volumeattach.Create(d.computeClient, d.config.MachineID, opts).Extract()
