@@ -131,10 +131,12 @@ func (d plugin) Get(r *volume.GetRequest) (*volume.GetResponse, error) {
 			Name:       r.Name,
 			CreatedAt:  vol.CreatedAt.Format(time.RFC3339),
 			Mountpoint: filepath.Join(d.config.MountDir, r.Name),
-			Status:     make(map[string]interface{}),
+			Status: map[string]interface{}{
+				"status": vol.Status,
+			},
 		},
 	}
-	logger.Debugf("Get response: %+v", response)
+	logger.Debugf("Get response: %s, %s, %s", response.Volume.Mountpoint, response.Volume.Name, response.Volume.Status)
 	return response, nil
 }
 
