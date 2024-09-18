@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"io"
 	"io/ioutil"
 	_log "log"
 	"os"
@@ -33,11 +34,13 @@ type tConfig struct {
 	MachineID                   string `json:"machineID,omitempty"`
 	MountDir                    string `json:"mountDir,omitempty"`
 	MountSubPath                string `json:"mountSubPath,omitempty"`
+	ForceDetach                 bool   `json:"forceDetach,omitempty"`
 	VolumeDefaultSize           int    `json:"volumeDefaultSize,omitempty"`
+	VolumeDefaultType           string `json:"volumeDefaultType,omitempty"`
 }
 
 func init() {
-	_log.SetOutput(ioutil.Discard)
+	_log.SetOutput(io.Discard)
 
 	log.SetFormatter(&log.TextFormatter{DisableTimestamp: true})
 	log.SetOutput(os.Stdout)

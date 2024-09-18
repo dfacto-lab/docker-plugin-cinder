@@ -33,9 +33,11 @@ Provide configuration for the plugin:
     "applicationCredentialName": "",
     "applicationCredentialSecret": "",
     "region": "",
-    "mountDir": ""
-    "volumeDefaultSize": ""
-    "mountSubPath": ""
+    "mountDir": "",
+    "volumeDefaultSize": "",
+    "mountSubPath": "",
+    "ForceDetach": "true",
+    "volumeDefaultType": "classic",
 }
 ```
 
@@ -55,7 +57,7 @@ By default a `cinder.json` from the current working directory will be used.
 The default volume size is 10GB but can be overridden:
 
 ```
-$ docker volume create -d cinder -o size=20 volname
+$ docker volume create -d cinder -o size=20 -o volumeType=high-speed-gen2 -o filesystem=xfs -o uid=999 -o gid=888 -o fileMode=0775 volname
 ```
 
 

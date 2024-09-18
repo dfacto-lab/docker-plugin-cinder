@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -46,20 +45,20 @@ func newPlugin(provider *gophercloud.ProviderClient, endpointOpts gophercloud.En
 	}
 
 	if len(config.MachineID) == 0 {
-		bytes, err := ioutil.ReadFile("/etc/machine-id")
+		bytes, err := os.ReadFile("/etc/machine-id")
 		if err != nil {
 			log.WithError(err).Error("Error reading machine id")
 			return nil, err
 		}
 
-		uuid, err := uuid.FromString(strings.TrimSpace(string(bytes)))
+		_uuid, err := uuid.FromString(strings.TrimSpace(string(bytes)))
 		if err != nil {
 			log.WithError(err).Error("Error parsing machine id")
 			return nil, err
 		}
 
-		log.WithField("id", uuid).Info("Machine ID detected")
-		config.MachineID = uuid.String()
+		log.WithField("id", _uuid).Info("Machine ID detected")
+		config.MachineID = _uuid.String()
 	} else {
 		log.WithField("id", config.MachineID).Debug("Using configured machine ID")
 	}
@@ -87,7 +86,6 @@ func (d plugin) Create(r *volume.CreateRequest) error {
 	defer d.mutex.Unlock()
 
 	// DEFAULT SIZE IN GB
-	//var size = 10
 	var size = d.config.VolumeDefaultSize
 	logger.Debugf("Default volume size was set to: %d", size)
 	var err error
@@ -96,18 +94,88 @@ func (d plugin) Create(r *volume.CreateRequest) error {
 		size, err = strconv.Atoi(s)
 		if err != nil {
 			logger.WithError(err).Error("Error parsing size option")
-			return fmt.Errorf("Invalid size option: %s", err.Error())
+			return fmt.Errorf("invalid size option: %s", err.Error())
 		}
+	}
+	// DEFAULT type
+	volumeType := d.config.VolumeDefaultType
+	logger.Debugf("Default volume type was set to: %s", volumeType)
+	if s, ok := r.Options["volumeType"]; ok {
+		volumeType = s
 	}
 
 	vol, err := volumes.Create(d.blockClient, volumes.CreateOpts{
-		Size: size,
-		Name: r.Name,
+		Size:       size,
+		Name:       r.Name,
+		VolumeType: volumeType,
 	}).Extract()
 
 	if err != nil {
 		logger.WithError(err).Errorf("Error creating volume: %s", err.Error())
 		return err
+	}
+	logger.Debugf("Attaching and formatting volume")
+	//we should attach it and format it
+	dev, err := d.attachVolume(logger.Context, vol)
+	if err != nil {
+		logger.WithError(err).Errorf("Error attaching volume to format: %s", err.Error())
+		return nil
+	}
+
+	format := "ext4"
+	if s, ok := r.Options["filesystem"]; ok {
+		format = s
+	}
+	if err := formatFilesystem(dev, r.Name, format); err != nil {
+		logger.WithError(err).Error("Formatting failed")
+		return nil
+	}
+	//we mount the volume to create the data folder
+	path, err := d.mountVolume(logger.Context, dev, vol.Name)
+	if err != nil {
+		logger.WithError(err).Error("Mounting volume to create data dir failed")
+		return nil
+	}
+	uid := 0
+	if s, ok := r.Options["uid"]; ok {
+		_uid, err := strconv.Atoi(s)
+		if err != nil {
+			logger.WithError(err).Error("Error parsing uid option")
+		} else {
+			uid = _uid
+		}
+	}
+	gid := 0
+	if s, ok := r.Options["gid"]; ok {
+		_gid, err := strconv.Atoi(s)
+		if err != nil {
+			logger.WithError(err).Error("Error parsing gid option")
+		} else {
+			gid = _gid
+		}
+	}
+	fileMode := 0700
+	if s, ok := r.Options["fileMode"]; ok {
+		_fileMode, err := strconv.Atoi(s)
+		if err != nil {
+			logger.WithError(err).Error("Error parsing gid option")
+		} else {
+			fileMode = _fileMode
+		}
+	}
+	_, err = d.configureMountDir(logger.Context, path, uid, gid, fileMode)
+	if err != nil {
+		logger.WithError(err).Error("Error creating data dir")
+	}
+	//unmounting volume
+	err = syscall.Unmount(path, 0)
+	if err != nil {
+		logger.WithError(err).Errorf("Error unmount %s", path)
+	}
+	//detaching volume
+	_, err = d.detachVolume(logger.Context, vol)
+	if err != nil {
+		logger.WithError(err).Errorf("Error detaching volume %s", vol.Name)
 	}
 
 	logger.WithField("id", vol.ID).Debug("Volume created")
@@ -198,10 +266,28 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 		return nil, err
 	}
 
+	if alreadyMounted(vol) {
+		path := filepath.Join(d.config.MountDir, r.Name)
+		if len(d.config.MountSubPath) > 0 {
+			path = filepath.Join(path, d.config.MountSubPath)
+		}
+		resp := volume.MountResponse{
+			Mountpoint: path,
+		}
+		usageCount := useVolume(vol)
+		logger.Debugf("Volume usage count is %d", usageCount)
+		logger.Debug("Volume already mounted")
+		return &resp, nil
+	}
+
 	if len(vol.Attachments) > 0 {
 		for i := 0; i < len(vol.Attachments); i++ {
 			attachment := vol.Attachments[i]
 			logger.Debugf("Attachment: Volume id %s, name %s, status: %s, attachment: %s, hostname: %s", vol.ID, vol.Name, vol.Status, attachment.Device, attachment.HostName)
+			//we should check if volume is attached to current host if already attached to current host we should return the path where it's attached
+		}
+		if &d.config.ForceDetach != nil && !d.config.ForceDetach {
+			return nil, errors.New(fmt.Sprintf("Volume id %s, name %s, status %s, is already attached to another host, force detach disabled.", vol.ID, vol.Name, vol.Status))
 		}
 		logger.Infof("Volume already attached, detaching first, status is: %s, attachments are: %s", vol.Status, vol.Attachments)
 		if vol, err = d.detachVolume(logger.Context, vol); err != nil {
@@ -229,43 +315,17 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 	if vol.Status != "available" {
 		logger.Debugf("Volume: %+v\n", vol)
 		logger.Errorf("Invalid volume state for mounting: %s", vol.Status)
-		return nil, errors.New("Invalid Volume State")
+		return nil, errors.New("invalid Volume State")
 	}
 	//
 	// Attaching block volume to compute instance
-	logger.Debugf("Attaching volume ID %s, name %s, status %s, attachments %s", vol.ID, vol.Name, vol.Status, vol.Attachments)
-
-	opts := volumeattach.CreateOpts{VolumeID: vol.ID}
-	_, err = volumeattach.Create(d.computeClient, d.config.MachineID, opts).Extract()
-
+	dev, err := d.attachVolume(logger.Context, vol)
 	if err != nil {
-		logger.WithError(err).Errorf("Error attaching volume: %s", err.Error())
-		//if (!strings.Contains(err.Error(), "already attached")) {
 		return nil, err
-		//} else {
-		//	logger.Infof("Bypassing error: volume already attached. Error was: %s", err.Error())
-		//}
-	}
-
-	//
-	// Waiting for device appearance
-
-	// TODO : Manage Docker engine version to enable first or second syntax
-	// DockerCE Version < 20.10.8 : /dev/disk/by-id/virtio-%.20s
-	// DockerCE Version >= 20.10.8 : /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_%s
-	// dev := fmt.Sprintf("/dev/disk/by-id/virtio-%.20s", vol.ID)
-	dev := fmt.Sprintf("/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_%s", vol.ID)
-	logger.WithField("dev", dev).Debug("Waiting for device to appear...")
-	err = waitForDevice(dev)
-
-	if err != nil {
-		logger.WithError(err).Error("Expected block device not found")
-		return nil, fmt.Errorf("Block device not found: %s", dev)
 	}
 
 	//
 	// Check filesystem and format if necessary
-
 	fsType, err := getFilesystemType(dev)
 	if err != nil {
 		logger.WithError(err).Error("Detecting filesystem type failed")
@@ -274,7 +334,7 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 
 	if fsType == "" {
 		logger.Debug("Volume is empty, formatting")
-		if err := formatFilesystem(dev, r.Name); err != nil {
+		if err := formatExt4Filesystem(dev, r.Name); err != nil {
 			logger.WithError(err).Error("Formatting failed")
 			return nil, err
 		}
@@ -282,28 +342,16 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 
 	//
 	// Mount device
-
-	path := filepath.Join(d.config.MountDir, r.Name)
-	if err = os.MkdirAll(path, 0700); err != nil {
-		logger.WithError(err).Error("Error creating mount directory")
+	path, err := d.mountVolume(logger.Context, dev, r.Name)
+	if err != nil {
 		return nil, err
 	}
 
-	logger.WithField("mount", path).Debug("Mounting volume...")
-	out, err := exec.Command("mount", dev, path).CombinedOutput()
-	if err != nil {
-		log.WithError(err).Errorf("%s", out)
-		return nil, errors.New(string(out))
-	}
-
+	//
 	//we create "data" subfolder
-	if len(d.config.MountSubPath) > 0 {
-		path = filepath.Join(path, d.config.MountSubPath)
-		logger.Info("Docker mount sub path: " + path)
-		if err = os.MkdirAll(path, 0700); err != nil {
-			logger.WithError(err).Error("Error creating data directory inside mounted volume")
-			return nil, err
-		}
+	path, err = d.configureMountDir(logger.Context, path, 0, 0, 0700)
+	if err != nil {
+		return nil, err
 	}
 
 	if vol, err = volumes.Get(d.blockClient, vol.ID).Extract(); err != nil {
@@ -313,10 +361,11 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 	logger.Debugf("Waiting for state in-use for volume id %s, %s, %s, %s", vol.ID, vol.Name, vol.Status, vol.Attachments)
 
 	if vol, err = d.waitOnVolumeState(logger.Context, vol, "in-use"); err != nil {
-		logger.WithError(err).Error("Error detaching volume")
+		logger.WithError(err).Error("Error mounting volume")
 		return nil, err
 	}
-
+	usageCount := useVolume(vol)
+	logger.Debugf("Volume usage count is %d", usageCount)
 	resp := volume.MountResponse{
 		Mountpoint: path,
 	}
@@ -385,6 +434,12 @@ func (d plugin) Unmount(r *volume.UnmountRequest) error {
 
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
+	usageCount := releaseVolume(r)
+	logger.Debugf("Volume usage count is %d", usageCount)
+	if usageCount > 0 {
+		logger.Debugf("Soft unmounting volume, still in use by other containers, usage count is %d", usageCount)
+		return nil
+	}
 
 	path := filepath.Join(d.config.MountDir, r.Name)
 	exists, err := isDirectoryPresent(path)
@@ -401,7 +456,7 @@ func (d plugin) Unmount(r *volume.UnmountRequest) error {
 
 	vol, err := d.getByName(r.Name)
 	if err != nil {
-		logger.WithError(err).Error("Error retriving volume")
+		logger.WithError(err).Error("Error retrieving volume")
 	} else {
 		_, err = d.detachVolume(logger.Context, vol)
 		if err != nil {
@@ -438,7 +493,7 @@ func (d plugin) getByName(name string) (*volumes.Volume, error) {
 	})
 
 	if len(volume.ID) == 0 {
-		return nil, errors.New("Not Found")
+		return nil, errors.New("not Found")
 	}
 
 	return volume, err
@@ -512,4 +567,70 @@ func (d plugin) waitOnAttachmentState(ctx context.Context, vol *volumes.Volume, 
 	log.WithContext(ctx).Debugf("Volume did not become %s: %+v", status, vol)
 
 	return nil, fmt.Errorf("Volume status did become %s", status)
+}
+
+func (d plugin) mountVolume(ctx context.Context, dev string, volumeName string) (string, error) {
+	path := filepath.Join(d.config.MountDir, volumeName)
+	if err := os.MkdirAll(path, 0700); err != nil {
+		log.WithContext(ctx).WithError(err).Error("Error creating mount directory")
+		return "", err
+	}
+
+	log.WithContext(ctx).WithField("mount", path).Debug("Mounting volume...")
+	out, err := exec.Command("mount", dev, path).CombinedOutput()
+	if err != nil {
+		log.WithContext(ctx).WithError(err).Errorf("%s", out)
+		return "", errors.New(string(out))
+	}
+	return path, nil
+}
+
+func (d plugin) attachVolume(ctx context.Context, vol *volumes.Volume) (string, error) {
+	//
+	// Attaching block volume to compute instance
+	log.WithContext(ctx).Debugf("Attaching volume ID %s, name %s, status %s, attachments %s", vol.ID, vol.Name, vol.Status, vol.Attachments)
+
+	opts := volumeattach.CreateOpts{VolumeID: vol.ID}
+	_, err := volumeattach.Create(d.computeClient, d.config.MachineID, opts).Extract()
+	if err != nil {
+		log.WithContext(ctx).WithError(err).Errorf("Error attaching volume: %s", err.Error())
+		return "", err
+	}
+
+	//
+	// Waiting for device appearance
+
+	// TODO : Manage Docker engine version to enable first or second syntax
+	// DockerCE Version < 20.10.8 : /dev/disk/by-id/virtio-%.20s
+	// DockerCE Version >= 20.10.8 : /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_%s
+	// dev := fmt.Sprintf("/dev/disk/by-id/virtio-%.20s", vol.ID)
+	dev := getDeviceName(vol)
+	log.WithContext(ctx).WithField("dev", dev).Debug("Waiting for device to appear...")
+	err = waitForDevice(dev)
+
+	if err != nil {
+		log.WithContext(ctx).WithError(err).Error("Expected block device not found")
+		return "", fmt.Errorf("block device not found: %s", dev)
+	}
+	return dev, nil
+}
+
+func (d plugin) configureMountDir(ctx context.Context, path string, uid int, gid int, fileMode int) (string, error) {
+	if len(d.config.MountSubPath) > 0 {
+		path = filepath.Join(path, d.config.MountSubPath)
+		log.WithContext(ctx).Info("Docker mount sub path: " + path)
+		if err := os.MkdirAll(path, 0700); err != nil {
+			log.WithContext(ctx).WithError(err).Errorf("Error creating data directory inside mounted volume: %s", path)
+			return "", err
+		}
+	}
+	if err := os.Chown(path, uid, gid); err != nil {
+		log.WithContext(ctx).WithError(err).Errorf("Unable to change gid and uid of mount directory inside volume: %s", path)
+		return "", err
+	}
+	if err := os.Chmod(path, os.FileMode(fileMode)); err != nil {
+		log.WithContext(ctx).WithError(err).Errorf("Unable to change gid and uid of mount directory inside volume: %s", path)
+		return "", err
+	}
+	return path, nil
 }
