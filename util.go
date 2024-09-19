@@ -79,12 +79,8 @@ func deviceExists(dev string) bool {
 	return true
 }
 
-func alreadyMounted(vol *volumes.Volume) bool {
+func alreadyAttached(vol *volumes.Volume) bool {
 	dev := getDeviceName(vol)
-	//maybe we could check if status is in use
-	//if vol.Status != "in-use" {
-	//    return false
-	//}
 	return deviceExists(dev)
 }
 

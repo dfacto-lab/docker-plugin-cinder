@@ -33,7 +33,7 @@ type tConfig struct {
 	MachineID                   string `json:"machineID,omitempty"`
 	MountDir                    string `json:"mountDir,omitempty"`
 	MountSubPath                string `json:"mountSubPath,omitempty"`
-	ForceDetach                 *bool  `json:"forceDetach,omitempty"`
+	ForceDetach                 bool   `json:"forceDetach,omitempty"`
 	VolumeDefaultSize           int    `json:"volumeDefaultSize,omitempty"`
 	VolumeDefaultType           string `json:"volumeDefaultType,omitempty"`
 }
@@ -55,7 +55,7 @@ func main() {
 	flag.StringVar(&config.Prefix, "prefix", "docker-volume", "")
 	flag.StringVar(&config.MountDir, "mountDir", "", "")
 	flag.IntVar(&config.VolumeDefaultSize, "volumeDefaultSize", 10, "")
-	flag.BoolVar(config.ForceDetach, "forceDetach", false, "")
+	flag.BoolVar(&config.ForceDetach, "forceDetach", true, "")
 	flag.StringVar(&config.VolumeDefaultType, "volumeDefaultType", "", "")
 	flag.Parse()
 
