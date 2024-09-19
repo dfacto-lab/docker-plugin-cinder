@@ -178,6 +178,10 @@ func (d plugin) Create(r *volume.CreateRequest) error {
 	if err != nil {
 		logger.WithError(err).Errorf("Error detaching volume %s", vol.Name)
 	}
+	_, err = d.waitOnVolumeState(logger.Context, vol, "available")
+	if err != nil {
+		logger.WithError(err).Errorf("Error detaching volume %s", vol.Name)
+	}
 
 	logger.WithField("id", vol.ID).Debug("Volume created")
 
@@ -624,6 +628,7 @@ func (d plugin) configureMountDir(ctx context.Context, path string, uid int, gid
 			return "", err
 		}
 	}
+	log.WithContext(ctx).Debugf("Configure mount dir for path: %s", path)
 	if err := os.Chown(path, uid, gid); err != nil {
 		log.WithContext(ctx).WithError(err).Errorf("Unable to change gid and uid of mount directory inside volume: %s", path)
 		return "", err
