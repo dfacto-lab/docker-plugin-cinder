@@ -124,6 +124,10 @@ func (d plugin) Create(r *volume.CreateRequest) error {
 		return nil
 	}
 
+	if vol, err = d.waitOnVolumeState(logger.Context, vol, "in-use"); err != nil {
+		logger.WithError(err).Error("Error attaching volume")
+	}
+
 	format := "ext4"
 	if s, ok := r.Options["filesystem"]; ok {
 		format = s
@@ -181,9 +185,9 @@ func (d plugin) Create(r *volume.CreateRequest) error {
 		logger.WithError(err).Errorf("Error unmount %s", path)
 	}
 	//getting volume information, and attachments
-	logger.Debugf("Volume name for attacccc %s", vol.Name)
+	logger.Debugf("Volume name for atta %s", vol.Name)
 	vol, err = d.getByName(r.Name)
-	logger.Debugf("Got volume infor %s", vol)
+	logger.Debugf("Got volume infor %s", vol.Attachments)
 	if err != nil {
 		logger.WithError(err).Error("Error detaching volume, could not get volume attachments")
 	}
