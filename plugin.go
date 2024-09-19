@@ -158,20 +158,20 @@ func (d plugin) Create(r *volume.CreateRequest) error {
 			gid = _gid
 		}
 	}
-	fileMode := 0700
+	fileMode, _ := strconv.ParseUint("0700", 8, 32)
 	if s, ok := r.Options["fileMode"]; ok {
 		_fileMode, err := strconv.ParseUint(s, 8, 32)
 		if err != nil {
 			logger.WithError(err).Error("Error parsing gid option")
 		} else {
-			fileMode = int(_fileMode)
+			fileMode = _fileMode
 		}
 	}
 	subpath, err := d.createMountSubPath(logger.Context, path)
 	if err != nil {
 		logger.WithError(err).Error("Error creating mount sub path")
 	}
-	_, err = d.setPermissions(logger.Context, subpath, uid, gid, fileMode)
+	_, err = d.setPermissions(logger.Context, subpath, uid, gid, int(fileMode))
 	if err != nil {
 		logger.WithError(err).Error("Error setting permission on %path", path)
 	}
