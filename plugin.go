@@ -645,7 +645,7 @@ func (d plugin) setPermissions(ctx context.Context, path string, uid int, gid in
 		log.WithContext(ctx).WithError(err).Errorf("Unable to change gid and uid of mount directory inside volume: %s", path)
 		return "", err
 	}
-	if err := os.Chmod(path, os.FileMode(fileMode)); err != nil {
+	if err := os.Chmod(path, os.FileMode(uint32(fileMode))); err != nil {
 		log.WithContext(ctx).WithError(err).Errorf("Unable to change gid and uid of mount directory inside volume: %s", path)
 		return "", err
 	}
