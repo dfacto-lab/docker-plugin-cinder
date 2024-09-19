@@ -181,7 +181,7 @@ func (d plugin) Create(r *volume.CreateRequest) error {
 		logger.WithError(err).Errorf("Error unmount %s", path)
 	}
 	//getting volume information, and attachments
-	vol, err = volumes.Get(d.blockClient, vol.ID).Extract()
+	vol, err = d.getByName(vol.Name)
 	if err != nil {
 		logger.WithError(err).Error("Error detaching volume, could not get volume attachments")
 	}
@@ -555,7 +555,7 @@ func (d plugin) waitOnVolumeState(ctx context.Context, vol *volumes.Volume, stat
 		if slices.Contains(status, vol.Status) {
 			return vol, nil
 		}
-		log.WithContext(ctx).Debugf("Volume status did not become %s: %+v, waiting 500ms, %d tries left", status, vol.Status, i-loops)
+		log.WithContext(ctx).Debugf("Volume status did not become %s: %+v, waiting 500ms, %d tries left", status, vol.Status, loops-i)
 	}
 
 	return nil, fmt.Errorf("volume status did not become %s", status)
@@ -589,7 +589,7 @@ func (d plugin) waitOnAttachmentState(ctx context.Context, vol *volumes.Volume, 
 		if !isDetached && len(vol.Attachments) > 0 {
 			return vol, nil
 		}
-		log.WithContext(ctx).Debugf("Volume state did not became %s: %+v, waiting 500ms, %d tries left", status, vol.Status, i-loops)
+		log.WithContext(ctx).Debugf("Volume state did not became %s: %+v, waiting 500ms, %d tries left", status, vol.Status, loops-i)
 	}
 
 	return nil, fmt.Errorf("volume status did become %s", status)
