@@ -534,8 +534,7 @@ func (d plugin) waitOnVolumeState(ctx context.Context, vol *volumes.Volume, stat
 	for i := 1; i <= loops; i++ {
 		time.Sleep(500 * time.Millisecond)
 
-		_vol, err := volumes.Get(d.blockClient, vol.ID).Extract()
-		vol = _vol
+		vol, err := volumes.Get(d.blockClient, vol.ID).Extract()
 		if err != nil {
 			return nil, err
 		}
@@ -543,9 +542,8 @@ func (d plugin) waitOnVolumeState(ctx context.Context, vol *volumes.Volume, stat
 		if slices.Contains(status, vol.Status) {
 			return vol, nil
 		}
+		log.WithContext(ctx).Debugf("Volume status did not become %s: %+v, waiting 500ms, %d tries left", status, vol.Status, i-loops)
 	}
-
-	log.WithContext(ctx).Debugf("Volume did not become %s: %+v", status, vol)
 
 	return nil, fmt.Errorf("volume status did not become %s", status)
 }
@@ -578,9 +576,8 @@ func (d plugin) waitOnAttachmentState(ctx context.Context, vol *volumes.Volume, 
 		if !isDetached && len(vol.Attachments) > 0 {
 			return vol, nil
 		}
+		log.WithContext(ctx).Debugf("Volume state did not became %s: %+v, waiting 500ms, %d tries left", status, vol.Status, i-loops)
 	}
-
-	log.WithContext(ctx).Debugf("Volume did not become %s: %+v", status, vol)
 
 	return nil, fmt.Errorf("volume status did become %s", status)
 }
