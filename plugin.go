@@ -255,7 +255,7 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 
 	logger = logger.WithField("id", vol.ID)
 	//maybe we should for status to be available or in-use, status can be reserved
-	logger.Infof("Volume is in '%s' state, wait for 'available' or 'in-use'...", vol.Status)
+	logger.Infof("Volume is in '%s' state, waiting for 'available' or 'in-use'...", vol.Status)
 	if vol, err = d.waitOnVolumeState(logger.Context, vol, "available", "in-use"); err != nil {
 		logger.Error(err.Error())
 		return nil, err
