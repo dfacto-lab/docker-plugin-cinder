@@ -178,9 +178,9 @@ func (d plugin) Create(r *volume.CreateRequest) error {
 	if err != nil {
 		logger.WithError(err).Errorf("Error detaching volume %s", vol.Name)
 	}
-	_, err = d.waitOnVolumeState(logger.Context, vol, "available")
-	if err != nil {
-		logger.WithError(err).Errorf("Error detaching volume %s", vol.Name)
+	if vol, err = d.waitOnAttachmentState(logger.Context, vol, "detached"); err != nil {
+		logger.WithError(err).Error("Error detaching volume")
+		//return nil, err
 	}
 
 	logger.WithField("id", vol.ID).Debug("Volume created")
