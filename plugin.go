@@ -164,11 +164,11 @@ func (d plugin) Create(r *volume.CreateRequest) error {
 			fileMode = _fileMode
 		}
 	}
-	_, err = d.createMountSubPath(logger.Context, path)
+	subpath, err := d.createMountSubPath(logger.Context, path)
 	if err != nil {
 		logger.WithError(err).Error("Error creating mount sub path")
 	}
-	_, err = d.setPermissions(logger.Context, path, uid, gid, fileMode)
+	_, err = d.setPermissions(logger.Context, subpath, uid, gid, fileMode)
 	if err != nil {
 		logger.WithError(err).Error("Error setting permission on %path", path)
 	}
@@ -547,7 +547,7 @@ func (d plugin) waitOnVolumeState(ctx context.Context, vol *volumes.Volume, stat
 
 	log.WithContext(ctx).Debugf("Volume did not become %s: %+v", status, vol)
 
-	return nil, fmt.Errorf("volume status did become %s", status)
+	return nil, fmt.Errorf("volume status did not become %s", status)
 }
 
 func (d plugin) waitOnAttachmentState(ctx context.Context, vol *volumes.Volume, status string) (*volumes.Volume, error) {
