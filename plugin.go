@@ -115,7 +115,7 @@ func (d plugin) Create(r *volume.CreateRequest) error {
 		logger.WithError(err).Errorf("Error creating volume: %s", err.Error())
 		return err
 	}
-	logger.Debugf("Attaching and formatting volume")
+	logger.Debugf("Attaching  volume to format it")
 	//we should attach it and format it
 	dev, err := d.attachVolume(logger.Context, vol)
 	if err != nil {
@@ -127,10 +127,12 @@ func (d plugin) Create(r *volume.CreateRequest) error {
 	if s, ok := r.Options["filesystem"]; ok {
 		format = s
 	}
+	logger.Debugf("Formatting  volume to %s", format)
 	if err := formatFilesystem(dev, r.Name, format); err != nil {
 		logger.WithError(err).Error("Formatting failed")
 		return nil
 	}
+
 	//we mount the volume to create the data folder
 	path, err := d.mountVolume(logger.Context, dev, vol.Name)
 	if err != nil {
@@ -589,7 +591,7 @@ func (d plugin) mountVolume(ctx context.Context, dev string, volumeName string) 
 		return "", err
 	}
 
-	log.WithContext(ctx).WithField("mount", path).Debug("Mounting volume...")
+	log.WithContext(ctx).WithField("mount", path).Debug("Mounting volume %s to %s...", dev, volumeName)
 	out, err := exec.Command("mount", dev, path).CombinedOutput()
 	if err != nil {
 		log.WithContext(ctx).WithError(err).Errorf("%s", out)
