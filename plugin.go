@@ -164,9 +164,13 @@ func (d plugin) Create(r *volume.CreateRequest) error {
 			fileMode = _fileMode
 		}
 	}
-	_, err = d.configureMountDir(logger.Context, path, uid, gid, fileMode)
+	_, err = d.createMountSubPath(logger.Context, path)
 	if err != nil {
-		logger.WithError(err).Error("Error creating data dir")
+		logger.WithError(err).Error("Error creating mount sub path")
+	}
+	_, err = d.setPermissions(logger.Context, path, uid, gid, fileMode)
+	if err != nil {
+		logger.WithError(err).Error("Error setting permission on %path", path)
 	}
 	//unmounting volume
 	err = syscall.Unmount(path, 0)
@@ -355,8 +359,8 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 	}
 
 	//
-	//we create "data" subfolder
-	path, err = d.configureMountDir(logger.Context, path, 0, 0, 0700)
+	//we create "data" sub folder if it does not exist
+	path, err = d.createMountSubPath(logger.Context, path)
 	if err != nil {
 		return nil, err
 	}
@@ -516,7 +520,7 @@ func (d plugin) detachVolume(ctx context.Context, vol *volumes.Volume) (*volumes
 			return nil, err
 		}
 	}
-
+	log.WithContext(ctx).Debugf("Detached volume")
 	return vol, nil
 }
 
@@ -627,16 +631,19 @@ func (d plugin) attachVolume(ctx context.Context, vol *volumes.Volume) (string, 
 	return dev, nil
 }
 
-func (d plugin) configureMountDir(ctx context.Context, path string, uid int, gid int, fileMode int) (string, error) {
+func (d plugin) createMountSubPath(ctx context.Context, path string) (string, error) {
 	if len(d.config.MountSubPath) > 0 {
 		path = filepath.Join(path, d.config.MountSubPath)
-		log.WithContext(ctx).Info("Docker mount sub path: " + path)
 		if err := os.MkdirAll(path, 0700); err != nil {
 			log.WithContext(ctx).WithError(err).Errorf("Error creating data directory inside mounted volume: %s", path)
 			return "", err
 		}
 	}
-	log.WithContext(ctx).Debugf("Configure mount dir for path: %s", path)
+	return path, nil
+}
+
+func (d plugin) setPermissions(ctx context.Context, path string, uid int, gid int, fileMode int) (string, error) {
+	log.WithContext(ctx).Debugf("Set mount dir permissions for path: %s", path)
 	if err := os.Chown(path, uid, gid); err != nil {
 		log.WithContext(ctx).WithError(err).Errorf("Unable to change gid and uid of mount directory inside volume: %s", path)
 		return "", err
