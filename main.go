@@ -38,12 +38,16 @@ type tConfig struct {
 	VolumeDefaultType           string `json:"volumeDefaultType,omitempty"`
 }
 
+const version = "v0.4.2"
+
 func init() {
 	_log.SetOutput(io.Discard)
 
 	log.SetFormatter(&log.TextFormatter{DisableTimestamp: true})
 	log.SetOutput(os.Stdout)
 	log.SetLevel(log.InfoLevel)
+
+	log.Infof("Plugin version %s", version)
 }
 
 func main() {
