@@ -62,7 +62,7 @@ func main() {
 	flag.IntVar(&config.VolumeDefaultSize, "volumeDefaultSize", 10, "")
 	flag.BoolVar(&config.ForceDetach, "forceDetach", true, "")
 	flag.StringVar(&config.VolumeDefaultType, "volumeDefaultType", "", "")
-	flag.IntVar(&config.Timeout, "timeout", 30, "")
+	flag.IntVar(&config.Timeout, "timeout", 60, "")
 	flag.Parse()
 
 	if len(configFile) == 0 {
