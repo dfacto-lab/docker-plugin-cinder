@@ -182,6 +182,10 @@ func (d plugin) Create(r *volume.CreateRequest) error {
 		logger.WithError(err).Error("Error detaching volume")
 		//return nil, err
 	}
+	if vol, err = d.waitOnVolumeState(logger.Context, vol, "available"); err != nil {
+		logger.WithError(err).Error("Error detaching volume")
+		//return nil, err
+	}
 
 	logger.WithField("id", vol.ID).Debug("Volume created")
 
@@ -470,7 +474,10 @@ func (d plugin) Unmount(r *volume.UnmountRequest) error {
 		logger.WithError(err).Error("Error detaching volume")
 		//return nil, err
 	}
-
+	if vol, err = d.waitOnVolumeState(logger.Context, vol, "available"); err != nil {
+		logger.WithError(err).Error("Error detaching volume")
+		//return nil, err
+	}
 	return nil
 }
 
@@ -519,7 +526,7 @@ func (d plugin) waitOnVolumeState(ctx context.Context, vol *volumes.Volume, stat
 		return vol, nil
 	}
 
-	for i := 1; i <= 30; i++ {
+	for i := 1; i <= 60; i++ {
 		time.Sleep(500 * time.Millisecond)
 
 		vol, err := volumes.Get(d.blockClient, vol.ID).Extract()
@@ -551,7 +558,7 @@ func (d plugin) waitOnAttachmentState(ctx context.Context, vol *volumes.Volume, 
 		return vol, nil
 	}
 
-	for i := 1; i <= 30; i++ {
+	for i := 1; i <= 60; i++ {
 		time.Sleep(500 * time.Millisecond)
 
 		vol, err := volumes.Get(d.blockClient, vol.ID).Extract()

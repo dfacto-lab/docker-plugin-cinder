@@ -103,7 +103,7 @@ func waitForDevice(dev string) error {
 		return nil
 	}
 
-	for i := 1; i <= 30; i++ {
+	for i := 1; i <= 60; i++ {
 		time.Sleep(500 * time.Millisecond)
 
 		if _, err = os.Stat(dev); err != nil {

@@ -38,7 +38,7 @@ type tConfig struct {
 	VolumeDefaultType           string `json:"volumeDefaultType,omitempty"`
 }
 
-const version = "v0.4.2"
+const version = "v0.4.3"
 
 func init() {
 	_log.SetOutput(io.Discard)
