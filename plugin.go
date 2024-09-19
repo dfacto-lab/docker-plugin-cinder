@@ -285,7 +285,7 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 			logger.Debugf("Attachment: Volume id %s, name %s, status: %s, attachment: %s, hostname: %s", vol.ID, vol.Name, vol.Status, attachment.Device, attachment.HostName)
 			//we should check if volume is attached to current host if already attached to current host we should return the path where it's attached
 		}
-		if &d.config.ForceDetach != nil && !d.config.ForceDetach {
+		if d.config.ForceDetach != nil && !*d.config.ForceDetach {
 			return nil, errors.New(fmt.Sprintf("Volume id %s, name %s, status %s, is already attached to another host, force detach disabled.", vol.ID, vol.Name, vol.Status))
 		}
 		logger.Infof("Volume already attached, detaching first, status is: %s, attachments are: %s", vol.Status, vol.Attachments)

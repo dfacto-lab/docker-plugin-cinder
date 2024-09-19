@@ -107,7 +107,7 @@ func waitForDevice(dev string) error {
 		return nil
 	}
 
-	for i := 1; i <= 10; i++ {
+	for i := 1; i <= 30; i++ {
 		time.Sleep(500 * time.Millisecond)
 
 		if _, err = os.Stat(dev); err != nil {
@@ -119,7 +119,7 @@ func waitForDevice(dev string) error {
 		}
 	}
 
-	return fmt.Errorf("Timeout waiting for file: %s", dev)
+	return fmt.Errorf("timeout waiting for file: %s", dev)
 }
 
 func isDirectoryPresent(path string) (bool, error) {
