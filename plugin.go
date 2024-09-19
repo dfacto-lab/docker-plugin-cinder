@@ -186,8 +186,8 @@ func (d plugin) Create(r *volume.CreateRequest) error {
 		logger.WithError(err).Error("Error detaching volume, could not get volume attachments")
 	}
 	//detach volume
-	_, err = d.detachVolume(logger.Context, vol)
-	if err != nil {
+
+	if vol, err = d.detachVolume(logger.Context, vol); err != nil {
 		logger.WithError(err).Errorf("Error detaching volume %s", vol.Name)
 	}
 	if vol, err = d.waitOnAttachmentState(logger.Context, vol, "detached"); err != nil {
