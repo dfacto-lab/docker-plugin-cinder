@@ -529,7 +529,7 @@ func (d plugin) waitOnVolumeState(ctx context.Context, vol *volumes.Volume, stat
 	if slices.Contains(status, vol.Status) {
 		return vol, nil
 	}
-	loops := d.config.Timeout / 5
+	loops := d.config.Timeout * 2
 
 	for i := 1; i <= loops; i++ {
 		time.Sleep(500 * time.Millisecond)
@@ -555,7 +555,7 @@ func (d plugin) waitOnAttachmentState(ctx context.Context, vol *volumes.Volume, 
 	if status == "attached" {
 		isDetached = false
 	}
-	loops := d.config.Timeout / 5
+	loops := d.config.Timeout * 2
 	if isDetached && len(vol.Attachments) == 0 {
 		return vol, nil
 	}
@@ -664,7 +664,7 @@ func (d plugin) waitForDevice(dev string) error {
 	} else {
 		return nil
 	}
-	loops := d.config.Timeout / 5
+	loops := d.config.Timeout * 2
 
 	for i := 1; i <= loops; i++ {
 		time.Sleep(500 * time.Millisecond)

@@ -39,7 +39,7 @@ type tConfig struct {
 	Timeout                     int    `json:"Timeout,omitempty"`
 }
 
-const version = "v0.4.4"
+const version = "v0.4.5"
 
 func init() {
 	_log.SetOutput(io.Discard)
@@ -62,7 +62,7 @@ func main() {
 	flag.IntVar(&config.VolumeDefaultSize, "volumeDefaultSize", 10, "")
 	flag.BoolVar(&config.ForceDetach, "forceDetach", true, "")
 	flag.StringVar(&config.VolumeDefaultType, "volumeDefaultType", "", "")
-	flag.IntVar(&config.Timeout, "timeout", 60, "")
+	flag.IntVar(&config.Timeout, "timeout", 30, "")
 	flag.Parse()
 
 	if len(configFile) == 0 {
