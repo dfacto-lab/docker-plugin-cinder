@@ -181,6 +181,7 @@ func (d plugin) Create(r *volume.CreateRequest) error {
 		logger.WithError(err).Errorf("Error unmount %s", path)
 	}
 	//getting volume information, and attachments
+	logger.Debugf("Volume name for attacccc %s", vol.Name)
 	vol, err = d.getByName(r.Name)
 	logger.Debugf("Got volume infor %s", vol)
 	if err != nil {
