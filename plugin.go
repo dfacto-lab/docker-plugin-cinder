@@ -534,8 +534,8 @@ func (d plugin) waitOnVolumeState(ctx context.Context, vol *volumes.Volume, stat
 	for i := 1; i <= loops; i++ {
 		time.Sleep(500 * time.Millisecond)
 
-		vol, err := volumes.Get(d.blockClient, vol.ID).Extract()
-
+		_vol, err := volumes.Get(d.blockClient, vol.ID).Extract()
+		vol = _vol
 		if err != nil {
 			return nil, err
 		}
@@ -643,7 +643,7 @@ func (d plugin) createMountSubPath(ctx context.Context, path string) (string, er
 }
 
 func (d plugin) setPermissions(ctx context.Context, path string, uid int, gid int, fileMode int) (string, error) {
-	log.WithContext(ctx).Debugf("Set mount dir permissions for path: %s", path)
+	log.WithContext(ctx).Debugf("Set mount dir permissions for path: %s, uid: %d, gid: %d, fileMode: %d", path, uid, gid, fileMode)
 	if err := os.Chown(path, uid, gid); err != nil {
 		log.WithContext(ctx).WithError(err).Errorf("Unable to change gid and uid of mount directory inside volume: %s", path)
 		return "", err
