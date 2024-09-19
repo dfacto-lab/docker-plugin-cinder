@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -253,13 +254,11 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 	}
 
 	logger = logger.WithField("id", vol.ID)
-
-	if vol.Status == "creating" || vol.Status == "detaching" {
-		logger.Infof("Volume is in '%s' state, wait for 'available'...", vol.Status)
-		if vol, err = d.waitOnVolumeState(logger.Context, vol, "available"); err != nil {
-			logger.Error(err.Error())
-			return nil, err
-		}
+	//maybe we should for status to be available or in-use, status can be reserved
+	logger.Infof("Volume is in '%s' state, wait for 'available' or 'in-use'...", vol.Status)
+	if vol, err = d.waitOnVolumeState(logger.Context, vol, "available", "in-use"); err != nil {
+		logger.Error(err.Error())
+		return nil, err
 	}
 
 	if vol, err = volumes.Get(d.blockClient, vol.ID).Extract(); err != nil {
@@ -472,7 +471,7 @@ func (d plugin) Unmount(r *volume.UnmountRequest) error {
 }
 
 func (d plugin) getByName(name string) (*volumes.Volume, error) {
-	var volume *volumes.Volume
+	var _volume *volumes.Volume
 
 	pager := volumes.List(d.blockClient, volumes.ListOpts{Name: name})
 	err := pager.EachPage(func(page pagination.Page) (bool, error) {
@@ -484,7 +483,7 @@ func (d plugin) getByName(name string) (*volumes.Volume, error) {
 
 		for _, v := range vList {
 			if v.Name == name {
-				volume = &v
+				_volume = &v
 				return false, nil
 			}
 		}
@@ -492,11 +491,11 @@ func (d plugin) getByName(name string) (*volumes.Volume, error) {
 		return true, nil
 	})
 
-	if len(volume.ID) == 0 {
+	if len(_volume.ID) == 0 {
 		return nil, errors.New("not Found")
 	}
 
-	return volume, err
+	return _volume, err
 }
 
 func (d plugin) detachVolume(ctx context.Context, vol *volumes.Volume) (*volumes.Volume, error) {
@@ -510,8 +509,9 @@ func (d plugin) detachVolume(ctx context.Context, vol *volumes.Volume) (*volumes
 	return vol, nil
 }
 
-func (d plugin) waitOnVolumeState(ctx context.Context, vol *volumes.Volume, status string) (*volumes.Volume, error) {
-	if vol.Status == status {
+func (d plugin) waitOnVolumeState(ctx context.Context, vol *volumes.Volume, status ...string) (*volumes.Volume, error) {
+
+	if slices.Contains(status, vol.Status) {
 		return vol, nil
 	}
 
@@ -524,14 +524,14 @@ func (d plugin) waitOnVolumeState(ctx context.Context, vol *volumes.Volume, stat
 			return nil, err
 		}
 
-		if vol.Status == status {
+		if slices.Contains(status, vol.Status) {
 			return vol, nil
 		}
 	}
 
 	log.WithContext(ctx).Debugf("Volume did not become %s: %+v", status, vol)
 
-	return nil, fmt.Errorf("Volume status did become %s", status)
+	return nil, fmt.Errorf("volume status did become %s", status)
 }
 
 func (d plugin) waitOnAttachmentState(ctx context.Context, vol *volumes.Volume, status string) (*volumes.Volume, error) {
@@ -566,7 +566,7 @@ func (d plugin) waitOnAttachmentState(ctx context.Context, vol *volumes.Volume, 
 
 	log.WithContext(ctx).Debugf("Volume did not become %s: %+v", status, vol)
 
-	return nil, fmt.Errorf("Volume status did become %s", status)
+	return nil, fmt.Errorf("volume status did become %s", status)
 }
 
 func (d plugin) mountVolume(ctx context.Context, dev string, volumeName string) (string, error) {
