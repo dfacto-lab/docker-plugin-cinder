@@ -308,9 +308,9 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 		logger.Debug("Volume already mounted")
 		return &resp, nil
 	}
-	//if alreadyAttached(vol) {
-	//	logger.Error("Volume attached to host but not mounted, this should not happen, or there is a race condition with another container.")
-	//}
+	if alreadyAttached(vol) {
+		logger.Error("Volume attached to host but not mounted, this should not happen, or there is a race condition with another container.")
+	}
 	if len(vol.Attachments) > 0 {
 		for i := 0; i < len(vol.Attachments); i++ {
 			attachment := vol.Attachments[i]
