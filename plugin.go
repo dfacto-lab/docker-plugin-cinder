@@ -23,6 +23,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/blockstorage/v3/volumes"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/volumeattach"
 	"github.com/gophercloud/gophercloud/pagination"
+	"github.com/moby/sys/mountinfo"
 )
 
 type plugin struct {
@@ -159,11 +160,11 @@ func (d plugin) Create(r *volume.CreateRequest) error {
 	}
 	fileMode := 0700
 	if s, ok := r.Options["fileMode"]; ok {
-		_fileMode, err := strconv.Atoi(s)
+		_fileMode, err := strconv.ParseUint(s, 8, 32)
 		if err != nil {
 			logger.WithError(err).Error("Error parsing gid option")
 		} else {
-			fileMode = _fileMode
+			fileMode = int(_fileMode)
 		}
 	}
 	subpath, err := d.createMountSubPath(logger.Context, path)
@@ -180,7 +181,8 @@ func (d plugin) Create(r *volume.CreateRequest) error {
 		logger.WithError(err).Errorf("Error unmount %s", path)
 	}
 	//getting volume information, and attachments
-	if vol, err = volumes.Get(d.blockClient, vol.ID).Extract(); err != nil {
+	vol, err = volumes.Get(d.blockClient, vol.ID).Extract()
+	if err != nil {
 		logger.WithError(err).Error("Error detaching volume, could not get volume attachments")
 	}
 	//detach volume
@@ -282,8 +284,11 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 	if vol, err = volumes.Get(d.blockClient, vol.ID).Extract(); err != nil {
 		return nil, err
 	}
-
-	if alreadyAttached(vol) {
+	mounted, err := mountinfo.Mounted(d.config.MountDir)
+	if err != nil {
+		logger.WithError(err).Errorf("Error testing if volume is mounted on: %s", d.config.MountDir)
+	}
+	if mounted {
 		path := filepath.Join(d.config.MountDir, r.Name)
 		if len(d.config.MountSubPath) > 0 {
 			path = filepath.Join(path, d.config.MountSubPath)
@@ -651,7 +656,7 @@ func (d plugin) setPermissions(ctx context.Context, path string, uid int, gid in
 		log.WithContext(ctx).WithError(err).Errorf("Unable to change gid and uid of mount directory inside volume: %s", path)
 		return "", err
 	}
-	if err := os.Chmod(path, os.FileMode(uint32(fileMode))); err != nil {
+	if err := os.Chmod(path, os.FileMode(fileMode)); err != nil {
 		log.WithContext(ctx).WithError(err).Errorf("Unable to change gid and uid of mount directory inside volume: %s", path)
 		return "", err
 	}
