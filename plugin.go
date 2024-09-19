@@ -528,6 +528,7 @@ func (d plugin) getByName(name string) (*volumes.Volume, error) {
 
 func (d plugin) detachVolume(ctx context.Context, vol *volumes.Volume) (*volumes.Volume, error) {
 	for _, att := range vol.Attachments {
+		log.WithContext(ctx).Debugf("Detaching attachment volume %s", att.VolumeID)
 		err := volumeattach.Delete(d.computeClient, att.ServerID, att.ID).ExtractErr()
 		if err != nil {
 			return nil, err
