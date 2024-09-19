@@ -179,10 +179,11 @@ func (d plugin) Create(r *volume.CreateRequest) error {
 	if err != nil {
 		logger.WithError(err).Errorf("Error unmount %s", path)
 	}
-	//detaching volume
+	//getting volume information, and attachments
 	if vol, err = volumes.Get(d.blockClient, vol.ID).Extract(); err != nil {
 		logger.WithError(err).Error("Error detaching volume, could not get volume attachments")
 	}
+	//detach volume
 	_, err = d.detachVolume(logger.Context, vol)
 	if err != nil {
 		logger.WithError(err).Errorf("Error detaching volume %s", vol.Name)
