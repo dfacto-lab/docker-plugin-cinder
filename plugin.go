@@ -291,7 +291,7 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 	if vol, err = volumes.Get(d.blockClient, vol.ID).Extract(); err != nil {
 		return nil, err
 	}
-	mounted, err := mountinfo.Mounted(d.config.MountDir)
+	mounted, err := mountinfo.Mounted(filepath.Join(d.config.MountDir, r.Name))
 	if err != nil {
 		logger.WithError(err).Errorf("Error testing if volume is mounted on: %s", d.config.MountDir)
 	}
@@ -308,9 +308,9 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 		logger.Debug("Volume already mounted")
 		return &resp, nil
 	}
-	if alreadyAttached(vol) {
-		logger.Error("Volume attached to host but not mounted, this should not happen, or there is a race condition with another container.")
-	}
+	//if alreadyAttached(vol) {
+	//	logger.Error("Volume attached to host but not mounted, this should not happen, or there is a race condition with another container.")
+	//}
 	if len(vol.Attachments) > 0 {
 		for i := 0; i < len(vol.Attachments); i++ {
 			attachment := vol.Attachments[i]
