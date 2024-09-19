@@ -326,17 +326,12 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 			return nil, err
 		}
 
-		if vol, err = d.waitOnVolumeState(logger.Context, vol, "available"); err != nil {
+		if vol, err = d.waitOnAttachmentState(logger.Context, vol, "detached"); err != nil {
 			logger.WithError(err).Error("Error detaching volume")
 			return nil, err
 		}
 
-		for i := 0; i < len(vol.Attachments); i++ {
-			attachment := vol.Attachments[i]
-			logger.Debugf("Volume id %s, name %s, status: %s, attachment: %s, hostname: %s", vol.ID, vol.Name, vol.Status, attachment.Device, attachment.HostName)
-		}
-
-		if vol, err = d.waitOnAttachmentState(logger.Context, vol, "detached"); err != nil {
+		if vol, err = d.waitOnVolumeState(logger.Context, vol, "available"); err != nil {
 			logger.WithError(err).Error("Error detaching volume")
 			return nil, err
 		}
