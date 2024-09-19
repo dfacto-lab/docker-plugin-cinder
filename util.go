@@ -8,7 +8,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"os"
 	"os/exec"
-	"time"
 )
 
 var volumeUsageCount = make(map[string]int)
@@ -91,31 +90,6 @@ func getDeviceName(vol *volumes.Volume) string {
 	// dev := fmt.Sprintf("/dev/disk/by-id/virtio-%.20s", vol.ID)
 	dev := fmt.Sprintf("/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_%s", vol.ID)
 	return dev
-}
-
-func waitForDevice(dev string) error {
-	_, err := os.Stat(dev)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			return err
-		}
-	} else {
-		return nil
-	}
-
-	for i := 1; i <= 60; i++ {
-		time.Sleep(500 * time.Millisecond)
-
-		if _, err = os.Stat(dev); err != nil {
-			if !os.IsNotExist(err) {
-				return err
-			}
-		} else {
-			return nil
-		}
-	}
-
-	return fmt.Errorf("timeout waiting for file: %s", dev)
 }
 
 func isDirectoryPresent(path string) (bool, error) {

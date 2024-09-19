@@ -525,8 +525,9 @@ func (d plugin) waitOnVolumeState(ctx context.Context, vol *volumes.Volume, stat
 	if slices.Contains(status, vol.Status) {
 		return vol, nil
 	}
+	loops := d.config.Timeout / 5
 
-	for i := 1; i <= 60; i++ {
+	for i := 1; i <= loops; i++ {
 		time.Sleep(500 * time.Millisecond)
 
 		vol, err := volumes.Get(d.blockClient, vol.ID).Extract()
@@ -550,7 +551,7 @@ func (d plugin) waitOnAttachmentState(ctx context.Context, vol *volumes.Volume, 
 	if status == "attached" {
 		isDetached = false
 	}
-
+	loops := d.config.Timeout / 5
 	if isDetached && len(vol.Attachments) == 0 {
 		return vol, nil
 	}
@@ -558,7 +559,7 @@ func (d plugin) waitOnAttachmentState(ctx context.Context, vol *volumes.Volume, 
 		return vol, nil
 	}
 
-	for i := 1; i <= 60; i++ {
+	for i := 1; i <= loops; i++ {
 		time.Sleep(500 * time.Millisecond)
 
 		vol, err := volumes.Get(d.blockClient, vol.ID).Extract()
@@ -617,7 +618,7 @@ func (d plugin) attachVolume(ctx context.Context, vol *volumes.Volume) (string, 
 	// dev := fmt.Sprintf("/dev/disk/by-id/virtio-%.20s", vol.ID)
 	dev := getDeviceName(vol)
 	log.WithContext(ctx).WithField("dev", dev).Debug("Waiting for device to appear...")
-	err = waitForDevice(dev)
+	err = d.waitForDevice(dev)
 
 	if err != nil {
 		log.WithContext(ctx).WithError(err).Error("Expected block device not found")
@@ -645,4 +646,30 @@ func (d plugin) configureMountDir(ctx context.Context, path string, uid int, gid
 		return "", err
 	}
 	return path, nil
+}
+
+func (d plugin) waitForDevice(dev string) error {
+	_, err := os.Stat(dev)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return err
+		}
+	} else {
+		return nil
+	}
+	loops := d.config.Timeout / 5
+
+	for i := 1; i <= loops; i++ {
+		time.Sleep(500 * time.Millisecond)
+
+		if _, err = os.Stat(dev); err != nil {
+			if !os.IsNotExist(err) {
+				return err
+			}
+		} else {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("timeout waiting for file: %s", dev)
 }

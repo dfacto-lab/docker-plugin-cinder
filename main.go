@@ -36,9 +36,10 @@ type tConfig struct {
 	ForceDetach                 bool   `json:"forceDetach,omitempty"`
 	VolumeDefaultSize           int    `json:"volumeDefaultSize,omitempty"`
 	VolumeDefaultType           string `json:"volumeDefaultType,omitempty"`
+	Timeout                     int    `json:"Timeout,omitempty"`
 }
 
-const version = "v0.4.3"
+const version = "v0.4.4"
 
 func init() {
 	_log.SetOutput(io.Discard)
@@ -61,6 +62,7 @@ func main() {
 	flag.IntVar(&config.VolumeDefaultSize, "volumeDefaultSize", 10, "")
 	flag.BoolVar(&config.ForceDetach, "forceDetach", true, "")
 	flag.StringVar(&config.VolumeDefaultType, "volumeDefaultType", "", "")
+	flag.IntVar(&config.Timeout, "timeout", 60, "")
 	flag.Parse()
 
 	if len(configFile) == 0 {
