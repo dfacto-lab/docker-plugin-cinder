@@ -291,67 +291,73 @@ func (d plugin) Mount(r *volume.MountRequest) (*volume.MountResponse, error) {
 	if vol, err = volumes.Get(d.blockClient, vol.ID).Extract(); err != nil {
 		return nil, err
 	}
-	mounted, err := mountinfo.Mounted(filepath.Join(d.config.MountDir, r.Name))
-	if err != nil {
-		logger.WithError(err).Errorf("Error testing if volume is mounted on: %s", d.config.MountDir)
+	mountDir := filepath.Join(d.config.MountDir, r.Name)
+	if exist, _ := isDirectoryPresent(mountDir); exist {
+		mounted, err := mountinfo.Mounted(mountDir)
+		if err != nil {
+			logger.WithError(err).Errorf("Error testing if volume is mounted on: %s", d.config.MountDir)
+		}
+		if mounted {
+			path := filepath.Join(d.config.MountDir, r.Name)
+			if len(d.config.MountSubPath) > 0 {
+				path = filepath.Join(path, d.config.MountSubPath)
+			}
+			resp := volume.MountResponse{
+				Mountpoint: path,
+			}
+			usageCount := useVolume(vol)
+			logger.Debugf("Volume usage count is %d", usageCount)
+			logger.Debug("Volume already mounted")
+			return &resp, nil
+		}
 	}
-	if mounted {
-		path := filepath.Join(d.config.MountDir, r.Name)
-		if len(d.config.MountSubPath) > 0 {
-			path = filepath.Join(path, d.config.MountSubPath)
+
+	if !alreadyAttached(vol) {
+		if len(vol.Attachments) > 0 {
+			//we detach the volume that is attached on another machine
+			for i := 0; i < len(vol.Attachments); i++ {
+				attachment := vol.Attachments[i]
+				logger.Debugf("Attachment: Volume id %s, name %s, status: %s, attachment: %s, hostname: %s", vol.ID, vol.Name, vol.Status, attachment.Device, attachment.HostName)
+				//we should check if volume is attached to current host if already attached to current host we should return the path where it's attached
+			}
+			if &d.config.ForceDetach != nil && !d.config.ForceDetach {
+				return nil, errors.New(fmt.Sprintf("Volume id %s, name %s, status %s, is already attached to another host, force detach disabled.", vol.ID, vol.Name, vol.Status))
+			}
+			logger.Infof("Volume already attached, detaching first, status is: %s, attachments are: %s", vol.Status, vol.Attachments)
+			if vol, err = d.detachVolume(logger.Context, vol); err != nil {
+				logger.WithError(err).Error("Error detaching volume")
+				return nil, err
+			}
+
+			if vol, err = d.waitOnAttachmentState(logger.Context, vol, "detached"); err != nil {
+				logger.WithError(err).Error("Error detaching volume")
+				return nil, err
+			}
+
+			if vol, err = d.waitOnVolumeState(logger.Context, vol, "available"); err != nil {
+				logger.WithError(err).Error("Error detaching volume")
+				return nil, err
+			}
+
 		}
-		resp := volume.MountResponse{
-			Mountpoint: path,
+
+		if vol.Status != "available" {
+			logger.Debugf("Volume: %+v\n", vol)
+			logger.Errorf("Invalid volume state for mounting: %s", vol.Status)
+			return nil, errors.New("invalid Volume State")
 		}
-		usageCount := useVolume(vol)
-		logger.Debugf("Volume usage count is %d", usageCount)
-		logger.Debug("Volume already mounted")
-		return &resp, nil
-	}
-	if alreadyAttached(vol) {
-		logger.Error("Volume attached to host but not mounted, this should not happen, or there is a race condition with another container.")
-	}
-	if len(vol.Attachments) > 0 {
-		for i := 0; i < len(vol.Attachments); i++ {
-			attachment := vol.Attachments[i]
-			logger.Debugf("Attachment: Volume id %s, name %s, status: %s, attachment: %s, hostname: %s", vol.ID, vol.Name, vol.Status, attachment.Device, attachment.HostName)
-			//we should check if volume is attached to current host if already attached to current host we should return the path where it's attached
-		}
-		if &d.config.ForceDetach != nil && !d.config.ForceDetach {
-			return nil, errors.New(fmt.Sprintf("Volume id %s, name %s, status %s, is already attached to another host, force detach disabled.", vol.ID, vol.Name, vol.Status))
-		}
-		logger.Infof("Volume already attached, detaching first, status is: %s, attachments are: %s", vol.Status, vol.Attachments)
-		if vol, err = d.detachVolume(logger.Context, vol); err != nil {
-			logger.WithError(err).Error("Error detaching volume")
+		//
+		// Attaching block volume to compute instance
+		_, err := d.attachVolume(logger.Context, vol)
+		if err != nil {
 			return nil, err
 		}
-
-		if vol, err = d.waitOnAttachmentState(logger.Context, vol, "detached"); err != nil {
-			logger.WithError(err).Error("Error detaching volume")
-			return nil, err
-		}
-
-		if vol, err = d.waitOnVolumeState(logger.Context, vol, "available"); err != nil {
-			logger.WithError(err).Error("Error detaching volume")
-			return nil, err
-		}
-
+	} else {
+		logger.Error("Volume already attached to host but not mounted, this should not happen! or there is a race condition with another container. \n Trying to mount it.")
 	}
-
-	if vol.Status != "available" {
-		logger.Debugf("Volume: %+v\n", vol)
-		logger.Errorf("Invalid volume state for mounting: %s", vol.Status)
-		return nil, errors.New("invalid Volume State")
-	}
-	//
-	// Attaching block volume to compute instance
-	dev, err := d.attachVolume(logger.Context, vol)
-	if err != nil {
-		return nil, err
-	}
-
 	//
 	// Check filesystem and format if necessary
+	dev := getDeviceName(vol)
 	fsType, err := getFilesystemType(dev)
 	if err != nil {
 		logger.WithError(err).Error("Detecting filesystem type failed")
