@@ -39,7 +39,7 @@ type tConfig struct {
 	Timeout                     int    `json:"Timeout,omitempty"`
 }
 
-const version = "v0.4.8"
+const version = "v1.0"
 
 func init() {
 	_log.SetOutput(io.Discard)
